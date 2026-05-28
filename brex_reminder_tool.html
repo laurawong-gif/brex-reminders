@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BREX ER Reminder Tool</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<!-- Google Identity Services (OAuth) and Google APIs client library -->
+<script src="https://accounts.google.com/gsi/client" defer></script>
+<script src="https://apis.google.com/js/api.js" defer></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1f1f1f;
+    background: #f6f6f6;
+    margin: 0;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .container { max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0 0 4px 0; font-size: 24px; }
+  .subtitle { color: #5f6368; margin: 0 0 24px 0; font-size: 14px; }
+  .subtitle a, #drop-zone a { color: #c8576f; font-weight: 600; text-decoration: underline; cursor: pointer; }
+  .subtitle a:hover, #drop-zone a:hover { color: #a04050; }
+
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  /* Upload zone */
+  #drop-zone {
+    border: 2px dashed #c8576f;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    background: #fff;
+  }
+  #drop-zone.dragover {
+    background: #fde7e9;
+    border-color: #a04050;
+  }
+  #drop-zone h3 { margin: 0 0 8px 0; color: #c8576f; font-size: 18px; }
+  #drop-zone p { margin: 4px 0; color: #5f6368; font-size: 14px; }
+  #drop-zone input { display: none; }
+  .browse-link { color: #c8576f; text-decoration: underline; font-weight: 600; cursor: pointer; }
+
+  /* Period override row */
+  .period-override-row {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    font-size: 13px;
+  }
+  .period-override-row select {
+    padding: 6px 10px;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    font-size: 13px;
+    background: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .period-override-hint { color: #5f6368; font-size: 12px; }
+
+  /* Auth bar */
+  #auth-bar {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    padding: 14px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  #auth-status { flex: 1; font-size: 13px; min-width: 0; }
+  #auth-status.signed-in { color: #2e7d32; }
+  #auth-actions { display: flex; gap: 8px; }
+
+  /* Instruction banner */
+  .instruction-banner {
+    background: #fff8e1;
+    border-left: 4px solid #f9a825;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+  .instruction-banner ol { margin: 8px 0 0 0; padding-left: 20px; }
+  .instruction-banner li { margin-bottom: 4px; }
+
+  /* Status bar */
+  #status {
+    background: #e8f5e9;
+    border-left: 4px solid #2e7d32;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    display: none;
+  }
+  #status.error {
+    background: #ffebee;
+    border-left-color: #c62828;
+  }
+
+  /* Drafts list */
+  #drafts-section { display: none; }
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .toolbar h2 { margin: 0; font-size: 18px; }
+  .toolbar-actions { display: flex; gap: 8px; }
+  button {
+    border: 1px solid #d0d0d0;
+    background: #fff;
+    color: #1f1f1f;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: #f0f0f0; }
+  button.primary { background: #c8576f; color: #fff; border-color: #c8576f; }
+  button.primary:hover { background: #a04050; }
+
+  .draft-card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .draft-header {
+    background: #f9f9f9;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .draft-header-info { flex: 1; min-width: 0; }
+  .draft-to { font-weight: 600; font-size: 14px; word-break: break-all; }
+  .draft-meta { font-size: 12px; color: #5f6368; margin-top: 2px; }
+  .draft-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .draft-body {
+    padding: 20px;
+    max-height: 600px;
+    overflow-y: auto;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    margin: 12px 16px;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: text;
+  }
+  .draft-body:hover { border-color: #e0e0e0; }
+  .draft-body:focus {
+    outline: none;
+    border-color: #c8576f;
+    background: #fffafb;
+  }
+  .draft-body.edited { border-color: #e0a800; background: #fffdf2; }
+  .edit-hint {
+    font-size: 11px;
+    color: #9aa0a6;
+    margin: 8px 16px 0 16px;
+    font-style: italic;
+  }
+  .edited-badge {
+    display: inline-block;
+    background: #e0a800;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .aged-badge {
+    display: inline-block;
+    background: #c00;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .copied-flash {
+    background: #2e7d32 !important;
+    color: #fff !important;
+    border-color: #2e7d32 !important;
+  }
+
+  details { margin-top: 16px; }
+  details summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: #5f6368;
+    padding: 8px 0;
+  }
+  details ol { font-size: 13px; color: #5f6368; padding-left: 20px; }
+  details li { margin-bottom: 6px; }
+
+  .footer {
+    color: #9aa0a6;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 32px;
+    padding: 16px 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>BREX ER Reminder Tool</h1>
+  <p class="subtitle">Upload the Coupa CSV → generate ready-to-send Gmail reminders. <a href="#" id="download-template-link">Download blank CSV template</a></p>
+
+  <div id="auth-bar">
+    <div id="auth-status">
+      <span id="auth-status-text">⚠️ Not signed in &mdash; you'll need to copy/paste manually into each Gmail compose window.</span>
+    </div>
+    <div id="auth-actions">
+      <button id="signin-btn" class="primary">Sign in with Google</button>
+      <button id="signout-btn" style="display:none;">Sign out</button>
+    </div>
+  </div>
+
+  <div id="drop-zone">
+    <h3>Drop your CSV here</h3>
+    <p>or <label for="file-input" class="browse-link">browse to upload</label></p>
+    <p style="font-size:12px;">Expected file: Download and populate the <a href="#" id="download-template-link-2">blank CSV template</a> file with current data set</p>
+    <input type="file" id="file-input" accept=".csv" />
+  </div>
+
+  <div id="status"></div>
+
+  <div id="drafts-section">
+    <div class="toolbar">
+      <h2 id="drafts-heading">Drafts</h2>
+      <div class="toolbar-actions">
+        <button id="create-all-btn" class="primary" disabled title="Sign in with Google to enable">Create all drafts in Gmail</button>
+        <button id="open-all-btn">Open all in Gmail compose (manual paste)</button>
+        <button id="reset-btn">Upload different CSV</button>
+      </div>
+    </div>
+    <div class="period-override-row">
+      <label for="period-override"><b>Statement period:</b></label>
+      <select id="period-override"></select>
+      <span class="period-override-hint">Override the auto-detected period if you're catching up or running for a past month.</span>
+    </div>
+    <div id="drafts-container"></div>
+  </div>
+
+  <details>
+    <summary>How to use this tool</summary>
+    <ol>
+      <li>Make sure you're signed in. The top bar should show <b>"✅ Signed in as laura.wong@masterclass.com"</b>. If not, click <b>Sign in with Google</b>.</li>
+      <li>Download the <b>blank CSV template</b> (link in the subtitle above), then populate it with this month's outstanding Brex ER data from Coupa. Save the populated CSV into your <code>~/Documents/Claude/Brex Reminders</code> folder.</li>
+      <li>Drop the CSV onto the upload zone above (or click "browse to upload").</li>
+      <li>Optional: click anywhere in a draft preview to tweak the wording for that specific person. An "EDITED" badge appears, and a "Reset edits" button lets you revert.</li>
+      <li>Click <b>"Create all drafts in Gmail"</b> at the top of the drafts list. All drafts will appear in your Gmail Drafts folder &mdash; fully formatted, in just a few seconds.</li>
+      <li>Open Gmail Drafts. For each draft: switch the From dropdown to <code>procurement@masterclass.com</code> (or set it as your default Send-mail-as), insert your Gmail signature, and click Send.</li>
+    </ol>
+    <p style="font-size:12px;color:#5f6368;margin-top:16px;">
+      <b>Footnote &mdash; if you can't sign in to Google:</b> use the <b>"Open in Gmail compose"</b> button on each draft instead. It opens a Gmail compose tab with To/Subject pre-filled AND copies the formatted email body to your clipboard. In the compose tab, click in the body area, paste (Cmd+V / Ctrl+V), switch the From dropdown, insert your signature, and Send. This fallback works without OAuth but requires one extra paste per draft.
+    </p>
+  </details>
+
+  <div class="footer">
+    BREX ER Reminder Tool &middot; runs entirely in your browser &middot; no data leaves your computer
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// CSV template — used by the "Download blank template" links
+// ============================================================================
+const CSV_TEMPLATE = "Exp #,Title,Expensed By,Submitted By,Submitted At,Total,Status,Current Approver,Current Approval Group,Created Date,Email,Second Email,Coupa Link\n";
+
+function downloadCsvTemplate(e) {
+  if (e) e.preventDefault();
+  const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Brex Email Reminder_TEMPLATE.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// CONFIG — paste your Google OAuth Client ID below after completing setup
+// (see SETUP.md). The placeholder string disables the sign-in button until
+// you replace it.
+// ============================================================================
+const CLIENT_ID = "353315836973-tootvieh7tsbk8ou0v1ev9omk9spm1mn.apps.googleusercontent.com";
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose";
+const GMAIL_DISCOVERY = "https://gmail.googleapis.com/$discovery/rest?version=v1";
+
+// ============================================================================
+// Gmail OAuth + API state
+// ============================================================================
+let gisReady = false;     // Google Identity Services library loaded
+let gapiReady = false;    // Google APIs client library loaded
+let tokenClient = null;
+let accessToken = null;
+let signedInEmail = null;
+
+function isConfigured() {
+  return CLIENT_ID && !CLIENT_ID.startsWith("PASTE_");
+}
+
+function updateAuthUi() {
+  const statusEl = document.getElementById("auth-status");
+  const statusText = document.getElementById("auth-status-text");
+  const signinBtn = document.getElementById("signin-btn");
+  const signoutBtn = document.getElementById("signout-btn");
+
+  if (!isConfigured()) {
+    statusText.innerHTML = "⚠️ Gmail integration not configured. Open the file in a text editor and replace the <code>CLIENT_ID</code> placeholder with your Google OAuth Client ID (see SETUP.md). Until then, the tool still works in copy/paste mode.";
+    signinBtn.disabled = true;
+    signinBtn.title = "Set CLIENT_ID in the HTML file first";
+    statusEl.classList.remove("signed-in");
+    return;
+  }
+  if (accessToken && signedInEmail) {
+    statusText.innerHTML = "✅ Signed in as <b>" + escapeHtml(signedInEmail) + "</b> &mdash; drafts will be created directly in your Gmail.";
+    signinBtn.style.display = "none";
+    signoutBtn.style.display = "";
+    statusEl.classList.add("signed-in");
+  } else {
+    statusText.innerHTML = "⚠️ Not signed in &mdash; click <b>Sign in with Google</b> to enable one-click draft creation. Without sign-in you'll need to copy/paste manually.";
+    signinBtn.style.display = "";
+    signoutBtn.style.display = "none";
+    statusEl.classList.remove("signed-in");
+  }
+  refreshDraftButtons();
+}
+
+function refreshDraftButtons() {
+  // Enable/disable the "Create Gmail draft" buttons based on auth state
+  document.querySelectorAll(".create-draft-btn").forEach(btn => {
+    btn.disabled = !accessToken;
+    btn.title = accessToken ? "" : "Sign in with Google to enable";
+  });
+  const bulkBtn = document.getElementById("create-all-btn");
+  if (bulkBtn) {
+    bulkBtn.disabled = !accessToken;
+    bulkBtn.title = accessToken ? "" : "Sign in with Google to enable";
+  }
+}
+
+async function loadGapiClient() {
+  await new Promise(r => gapi.load("client", r));
+  await gapi.client.init({});
+  await gapi.client.load(GMAIL_DISCOVERY);
+  gapiReady = true;
+}
+
+function initGis() {
+  if (!isConfigured()) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: GMAIL_SCOPE,
+    callback: async resp => {
+      if (resp.error) {
+        alert("Sign-in failed: " + resp.error);
+        return;
+      }
+      accessToken = resp.access_token;
+      gapi.client.setToken({ access_token: accessToken });
+      try {
+        const profile = await gapi.client.gmail.users.getProfile({ userId: "me" });
+        signedInEmail = profile.result.emailAddress;
+      } catch (e) {
+        signedInEmail = "(signed in)";
+      }
+      updateAuthUi();
+    },
+  });
+  gisReady = true;
+  updateAuthUi();
+}
+
+function signIn() {
+  if (!tokenClient) {
+    alert("Google sign-in library not ready yet. Try again in a moment.");
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: "consent" });
+}
+
+function signOut() {
+  if (!accessToken) return;
+  google.accounts.oauth2.revoke(accessToken);
+  accessToken = null;
+  signedInEmail = null;
+  gapi.client.setToken(null);
+  updateAuthUi();
+}
+
+// Build an RFC 822 message and create a Gmail draft
+function encodeBase64Url(s) {
+  return btoa(unescape(encodeURIComponent(s)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+function buildRfc822(toList, subject, htmlBody) {
+  return [
+    "To: " + toList.join(", "),
+    "Subject: " + subject,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    encodeBase64Url(htmlBody),  // safe for base64; we re-encode the whole below
+  ].join("\r\n");
+}
+function buildRfc822Plain(toList, subject, htmlBody) {
+  // Simpler approach: 8bit body, RFC 822 ascii safe via UTF-8 + Q-encoded subject if needed
+  return [
+    "To: " + toList.join(", "),
+    "Subject: " + subject,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "",
+    htmlBody,
+  ].join("\r\n");
+}
+
+async function createGmailDraft(toList, subject, htmlBody) {
+  if (!accessToken) throw new Error("Not signed in");
+  const message = buildRfc822Plain(toList, subject, htmlBody);
+  const raw = encodeBase64Url(message);
+  const resp = await gapi.client.gmail.users.drafts.create({
+    userId: "me",
+    resource: { message: { raw } },
+  });
+  return resp.result;
+}
+
+// ============================================================================
+// 2026 BREX statement calendar (embedded)
+// ============================================================================
+const CALENDAR = [
+  { label: "1/18/26 - 2/17/26",   begin: "2026-01-18", end: "2026-02-17", due: "2026-02-20" },
+  { label: "2/18/26 - 3/17/26",   begin: "2026-02-18", end: "2026-03-17", due: "2026-03-20" },
+  { label: "3/18/26 - 4/17/26",   begin: "2026-03-18", end: "2026-04-17", due: "2026-04-22" },
+  { label: "4/18/26 - 5/17/26",   begin: "2026-04-18", end: "2026-05-17", due: "2026-05-20" },
+  { label: "5/18/26 - 6/17/26",   begin: "2026-05-18", end: "2026-06-17", due: "2026-06-22" },
+  { label: "6/18/26 - 7/17/26",   begin: "2026-06-18", end: "2026-07-17", due: "2026-07-22" },
+  { label: "7/18/26 - 8/17/26",   begin: "2026-07-18", end: "2026-08-17", due: "2026-08-20" },
+  { label: "8/18/26 - 9/17/26",   begin: "2026-08-18", end: "2026-09-17", due: "2026-09-22" },
+  { label: "9/18/26 - 10/17/26",  begin: "2026-09-18", end: "2026-10-17", due: "2026-10-21" },
+  { label: "10/18/26 - 11/17/26", begin: "2026-10-18", end: "2026-11-17", due: "2026-11-20" },
+  { label: "11/18/26 - 12/17/26", begin: "2026-11-18", end: "2026-12-17", due: "2026-12-22" },
+  { label: "12/18/26 - 1/17/27",  begin: "2026-12-18", end: "2027-01-17", due: "2027-01-20" },
+];
+
+const MONTHS = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+};
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const SUBJECT = "[ACTION REQUIRED] BREX Credit Card Expense Reports DUE";
+
+// ============================================================================
+// Helpers
+// ============================================================================
+function fmtDateUS(dateStr) {
+  // "2026-02-20" -> "2/20/26"
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getMonth()+1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
+}
+function fmtDueLong(dateStr) {
+  // "2026-05-20" -> "5/20/2026"
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+}
+function fmtErTitle(beginStr) {
+  // "2026-04-18" -> "18 Apr 2026"
+  const d = new Date(beginStr + "T00:00:00");
+  return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+function dateOf(s) { return new Date(s + "T00:00:00"); }
+
+function currentPeriod(today) {
+  // Most-recently-ended period as of today
+  const ended = CALENDAR.filter(p => dateOf(p.end) < today);
+  if (ended.length === 0) return CALENDAR[0];
+  return ended.reduce((a, b) => dateOf(a.end) > dateOf(b.end) ? a : b);
+}
+function periodForEr(title) {
+  // Title like "BREX MasterCard – Statement Beginning Date: 18 April 2026 - 9611"
+  const m = title.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = MONTHS[m[2].toLowerCase()];
+  const year = parseInt(m[3], 10);
+  if (!month) return null;
+  const beginStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return CALENDAR.find(p => p.begin === beginStr) || null;
+}
+
+function firstNameFromEmail(email) {
+  const local = email.split("@")[0] || "";
+  const first = local.split(".")[0] || "";
+  if (first.length === 2 && /^[a-z]+$/i.test(first)) {
+    return first.toUpperCase();
+  }
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
+function parseTotal(total) {
+  const parts = total.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return { amount: parts.slice(0, -1).join(" "), currency: parts[parts.length-1] };
+  }
+  return { amount: total, currency: "" };
+}
+
+// Simple CSV parser that handles quoted fields with commas
+function parseCsv(text) {
+  const rows = [];
+  let i = 0, field = "", row = [], inQuotes = false;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i+1] === '"') { field += '"'; i += 2; continue; }
+      if (c === '"') { inQuotes = false; i++; continue; }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ""; i++; continue; }
+    if (c === '\n' || c === '\r') {
+      if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+      field = ""; row = [];
+      if (c === '\r' && text[i+1] === '\n') i += 2; else i++;
+      continue;
+    }
+    field += c; i++;
+  }
+  if (field !== "" || row.length > 0) { row.push(field); rows.push(row); }
+  if (rows.length === 0) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1)
+    .filter(r => r.some(c => c.trim() !== ""))
+    .map(r => {
+      const o = {};
+      headers.forEach((h, idx) => { o[h] = (r[idx] || "").trim(); });
+      return o;
+    });
+}
+
+// ============================================================================
+// Email body construction
+// ============================================================================
+function buildCalendarTableHtml() {
+  const rows = CALENDAR.map(p => {
+    const erTitle = fmtErTitle(p.begin);
+    const due = fmtDateUS(p.due);
+    return (
+      `<tr>` +
+      `<td style="border:1px solid #000;padding:2px 6px;text-align:center;white-space:nowrap;">${p.label}</td>` +
+      `<td style="border:1px solid #000;padding:2px 6px;text-align:center;white-space:nowrap;">${due}</td>` +
+      `<td style="border:1px solid #000;padding:2px 6px;text-align:center;white-space:nowrap;">${erTitle}</td>` +
+      `</tr>`
+    );
+  }).join("");
+  return (
+    `<p style="color:#1f4ec3;font-style:italic;font-family:Arial,sans-serif;font-size:12px;margin-bottom:4px;">` +
+    `*Expense reports due 3 business days after the BREX statement period ends</p>` +
+    `<table style="border-collapse:collapse;border:1px solid #000;font-family:Arial,sans-serif;font-size:12px;">` +
+    `<thead><tr style="background-color:#c8576f;color:#fff;">` +
+    `<th style="border:1px solid #000;padding:4px 6px;text-align:center;font-weight:bold;">BREX Statement<br>Period</th>` +
+    `<th style="border:1px solid #000;padding:4px 6px;text-align:center;font-weight:bold;">Coupa Expense<br>Report Due Date*</th>` +
+    `<th style="border:1px solid #000;padding:4px 6px;text-align:center;font-weight:bold;">Coupa ER Title</th>` +
+    `</tr></thead><tbody>${rows}</tbody></table>`
+  );
+}
+
+function buildEmailHtml(person, currentPd) {
+  const itemsHtml = person.items.map(it => {
+    const rowStyle = it.aged ? ' style="background-color:#fde7e9;"' : "";
+    const agedTag = it.aged ? ' <span style="color:#c00;font-weight:bold;">(AGED)</span>' : "";
+    const titleCell = it.coupaLink
+      ? `<a href="${it.coupaLink}">${escapeHtml(it.title)}</a>${agedTag}`
+      : `${escapeHtml(it.title)}${agedTag}`;
+    return (
+      `<tr${rowStyle}>` +
+      `<td style="border:1px solid #999;padding:4px 8px;">${titleCell}</td>` +
+      `<td style="border:1px solid #999;padding:4px 8px;">${escapeHtml(it.expensedBy)}</td>` +
+      `<td style="border:1px solid #999;padding:4px 8px;">${escapeHtml(it.amount)} ${escapeHtml(it.currency)}</td>` +
+      `<td style="border:1px solid #999;padding:4px 8px;">${escapeHtml(it.status)}</td>` +
+      `</tr>`
+    );
+  }).join("");
+
+  const hasAged = person.items.some(it => it.aged);
+  const agedNote = hasAged
+    ? `<p style="color:#c00;"><b>Note:</b> Rows highlighted as <b>AGED</b> are from prior statement periods and remain outstanding. Please prioritize these.</p>`
+    : "";
+
+  return (
+    `<div style="font-family:Arial,sans-serif;font-size:13px;color:#000;">` +
+    `<p>Hi ${escapeHtml(person.firstName)},</p>` +
+    `<p>With the ${currentPd.label} BREX billing statement having ended, this is a friendly reminder about the below expense report(s) for your Brex credit card activity that are pending submission in Coupa:</p>` +
+    `<table style="border-collapse:collapse;border:1px solid #999;font-family:Arial,sans-serif;font-size:13px;">` +
+    `<thead><tr style="background-color:#d9d9d9;">` +
+    `<th style="border:1px solid #999;padding:4px 8px;text-align:left;">Title</th>` +
+    `<th style="border:1px solid #999;padding:4px 8px;text-align:left;">Expensed By</th>` +
+    `<th style="border:1px solid #999;padding:4px 8px;text-align:left;">Total</th>` +
+    `<th style="border:1px solid #999;padding:4px 8px;text-align:left;">Status</th>` +
+    `</tr></thead><tbody>${itemsHtml}</tbody></table>` +
+    `<p style="color:#c00;"><b>Completed ERs in Coupa are due with fully itemized receipts and updated business memo/descriptions by: <u>${fmtDueLong(currentPd.due)}</u>.</b></p>` +
+    agedNote +
+    `<p>Thank you and please feel free to reach out to anyone on the Procurement team with any questions or concerns you may have.</p>` +
+    `<p style="font-family:Arial,sans-serif;font-size:13px;color:#000;margin:16px 0 4px 0;">--------------------------------------------------------------------------------</p>` +
+    `<p style="margin:0 0 4px 0;"><b>For your reference, the full BREX statement schedule for 2026:</b></p>` +
+    buildCalendarTableHtml() +
+    `</div>`
+  );
+}
+
+function buildEmailText(person, currentPd) {
+  const lines = [];
+  lines.push(`Hi ${person.firstName},`);
+  lines.push("");
+  lines.push(`With the ${currentPd.label} BREX billing statement having ended, this is a friendly reminder about the below expense report(s) for your Brex credit card activity that are pending submission in Coupa:`);
+  lines.push("");
+  for (const it of person.items) {
+    const flag = it.aged ? " [AGED]" : "";
+    const linkPart = it.coupaLink ? ` (${it.coupaLink})` : "";
+    lines.push(`  - ${it.title}${linkPart} | Expensed By: ${it.expensedBy} | ${it.amount} ${it.currency} | Status: ${it.status}${flag}`);
+  }
+  lines.push("");
+  lines.push(`Completed ERs in Coupa are due with fully itemized receipts and updated business memo/descriptions by: ${fmtDueLong(currentPd.due)}.`);
+  if (person.items.some(it => it.aged)) {
+    lines.push("");
+    lines.push("Note: items flagged [AGED] are from prior statement periods and remain outstanding. Please prioritize these.");
+  }
+  lines.push("");
+  lines.push("Thank you and please feel free to reach out to anyone on the Procurement team with any questions or concerns you may have.");
+  lines.push("");
+  lines.push("--------------------------------------------------------------------------------");
+  lines.push("For your reference, the full BREX statement schedule for 2026:");
+  lines.push("");
+  lines.push("*Expense reports due 3 business days after the BREX statement period ends");
+  lines.push("");
+  for (const p of CALENDAR) {
+    lines.push(`  ${p.label.padEnd(22)} | ${fmtDateUS(p.due).padEnd(8)} | ${fmtErTitle(p.begin)}`);
+  }
+  return lines.join("\n");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// ============================================================================
+// Group CSV rows by recipient
+// ============================================================================
+function groupByEmail(rows, currentPd) {
+  const grouped = new Map();
+  for (const r of rows) {
+    const email = (r["Email"] || "").trim();
+    if (!email) continue;
+    if (!grouped.has(email)) {
+      grouped.set(email, {
+        email,
+        secondEmail: (r["Second Email"] || "").trim(),
+        firstName: firstNameFromEmail(email),
+        expensedBy: (r["Expensed By"] || "").trim(),
+        items: [],
+      });
+    }
+    const person = grouped.get(email);
+    if ((r["Second Email"] || "").trim() && !person.secondEmail) {
+      person.secondEmail = r["Second Email"].trim();
+    }
+    const erPeriod = periodForEr(r["Title"] || "");
+    const isAged = erPeriod && dateOf(erPeriod.end) < dateOf(currentPd.end);
+    const totalParts = parseTotal(r["Total"] || "");
+    person.items.push({
+      expNo: (r["Exp #"] || "").trim(),
+      title: (r["Title"] || "").trim(),
+      amount: totalParts.amount,
+      currency: totalParts.currency,
+      createdDate: (r["Created Date"] || "").trim(),
+      status: (r["Status"] || "").trim(),
+      coupaLink: (r["Coupa Link"] || "").trim(),
+      expensedBy: (r["Expensed By"] || "").trim(),
+      aged: !!isAged,
+    });
+  }
+  // Sort items: aged first, then by created date
+  for (const p of grouped.values()) {
+    p.items.sort((a, b) => {
+      if (a.aged !== b.aged) return a.aged ? -1 : 1;
+      return a.createdDate.localeCompare(b.createdDate);
+    });
+  }
+  return Array.from(grouped.values()).sort((a, b) => a.email.localeCompare(b.email));
+}
+
+// ============================================================================
+// Gmail compose URL
+// ----------------------------------------------------------------------------
+// Gmail's compose URL only supports plain text in the `body` parameter
+// (no HTML), so we intentionally leave the body blank. The user pastes the
+// rich-HTML body from the clipboard after the compose window opens.
+// ============================================================================
+function gmailComposeUrl(toList, subject) {
+  const params = new URLSearchParams();
+  params.set("view", "cm");
+  params.set("fs", "1");
+  params.set("to", toList.join(","));
+  params.set("su", subject);
+  return "https://mail.google.com/mail/?" + params.toString();
+}
+
+// Copy rich HTML + plain text to clipboard
+async function copyEmailToClipboard(html, text) {
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([text], { type: "text/plain" }),
+    })
+  ]);
+}
+
+// ============================================================================
+// Render
+// ============================================================================
+function renderDrafts(people, currentPd) {
+  const container = document.getElementById("drafts-container");
+  container.innerHTML = "";
+
+  document.getElementById("drafts-heading").textContent =
+    `${people.length} drafts ready — current statement period: ${currentPd.label} (due ${fmtDueLong(currentPd.due)})`;
+
+  people.forEach((person, idx) => {
+    const toList = [person.email];
+    if (person.secondEmail) toList.push(person.secondEmail);
+    const html = buildEmailHtml(person, currentPd);
+    const text = buildEmailText(person, currentPd);
+    const composeUrl = gmailComposeUrl(toList, SUBJECT, text);
+    const agedCount = person.items.filter(i => i.aged).length;
+    const agedBadge = agedCount > 0 ? `<span class="aged-badge">${agedCount} AGED</span>` : "";
+
+    const card = document.createElement("div");
+    card.className = "draft-card";
+    card.innerHTML = `
+      <div class="draft-header">
+        <div class="draft-header-info">
+          <div class="draft-to">To: ${escapeHtml(toList.join(", "))} ${agedBadge}<span class="edited-badge" style="display:none;">EDITED</span></div>
+          <div class="draft-meta">${person.items.length} item${person.items.length === 1 ? "" : "s"} &middot; Hi ${escapeHtml(person.firstName)}</div>
+        </div>
+        <div class="draft-actions">
+          <button class="primary create-draft-btn" data-idx="${idx}" disabled title="Sign in with Google to enable">Create Gmail draft</button>
+          <button class="open-compose-btn" data-idx="${idx}">Open in Gmail compose</button>
+          <button class="copy-email-btn" data-idx="${idx}">Copy email</button>
+          <button class="reset-draft-btn" data-idx="${idx}" style="display:none;">Reset edits</button>
+        </div>
+      </div>
+      <div class="edit-hint">✏️ Click anywhere in the preview below to edit the wording for this recipient. Edits stay local to this draft.</div>
+      <div class="draft-body" contenteditable="true" spellcheck="true">${html}</div>
+    `;
+    // Stash data on the card for handlers
+    card._data = { toList, originalHtml: html, originalText: text };
+    container.appendChild(card);
+  });
+
+  // Helpers: read live state from the editable preview
+  function getLiveState(card) {
+    const bodyDiv = card.querySelector(".draft-body");
+    const html = bodyDiv.innerHTML;
+    const text = bodyDiv.innerText;
+    return { html, text, toList: card._data.toList };
+  }
+
+  // Mark a card as edited when the user changes its body
+  container.querySelectorAll(".draft-body").forEach(bodyDiv => {
+    bodyDiv.addEventListener("input", () => {
+      const card = bodyDiv.closest(".draft-card");
+      const isEdited = bodyDiv.innerHTML !== card._data.originalHtml;
+      bodyDiv.classList.toggle("edited", isEdited);
+      card.querySelector(".edited-badge").style.display = isEdited ? "inline-block" : "none";
+      card.querySelector(".reset-draft-btn").style.display = isEdited ? "" : "none";
+    });
+  });
+
+  // Bind handlers
+  // "Open in Gmail" copies the rich HTML to the clipboard AND opens Gmail
+  // compose in a new tab — so the user just needs to paste (Cmd+V) in the
+  // compose body.
+  container.querySelectorAll(".open-compose-btn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      const card = e.target.closest(".draft-card");
+      const { toList, html, text } = getLiveState(card);
+      // Open compose first (must happen synchronously to count as user gesture)
+      const url = gmailComposeUrl(toList, SUBJECT);
+      window.open(url, "_blank");
+      // Then copy the rich HTML to clipboard
+      try {
+        await copyEmailToClipboard(html, text);
+        flashCopied(e.target, "Opened + Copied — paste in Gmail");
+      } catch (err) {
+        flashCopied(e.target, "Opened — use Copy email button");
+      }
+    });
+  });
+  container.querySelectorAll(".copy-email-btn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      const card = e.target.closest(".draft-card");
+      const { html, text } = getLiveState(card);
+      try {
+        await copyEmailToClipboard(html, text);
+        flashCopied(e.target);
+      } catch (err) {
+        // Fallback: copy plain text only
+        try {
+          await navigator.clipboard.writeText(text);
+          flashCopied(e.target, "Copied (text only)");
+        } catch (err2) {
+          alert("Couldn't access clipboard. Please copy manually.");
+        }
+      }
+    });
+  });
+  container.querySelectorAll(".reset-draft-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const card = e.target.closest(".draft-card");
+      const bodyDiv = card.querySelector(".draft-body");
+      bodyDiv.innerHTML = card._data.originalHtml;
+      bodyDiv.classList.remove("edited");
+      card.querySelector(".edited-badge").style.display = "none";
+      btn.style.display = "none";
+      flashCopied(e.target, "Reset ↻");
+    });
+  });
+  container.querySelectorAll(".create-draft-btn").forEach(btn => {
+    btn.addEventListener("click", async e => {
+      if (!accessToken) return;
+      const card = e.target.closest(".draft-card");
+      const { toList, html } = getLiveState(card);
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Creating...";
+      try {
+        await createGmailDraft(toList, SUBJECT, html);
+        btn.textContent = "✅ Draft created";
+        btn.classList.add("copied-flash");
+      } catch (err) {
+        console.error(err);
+        btn.textContent = "❌ Failed — see console";
+        alert("Could not create draft: " + (err.result ? err.result.error.message : err.message || err));
+      }
+      setTimeout(() => {
+        btn.textContent = originalLabel;
+        btn.disabled = !accessToken;
+        btn.classList.remove("copied-flash");
+      }, 2400);
+    });
+  });
+  refreshDraftButtons();
+}
+
+// Bulk: create all drafts in Gmail (sequentially, with a small delay)
+async function createAllInGmail() {
+  if (!accessToken) return;
+  const cards = document.querySelectorAll(".draft-card");
+  if (cards.length === 0) return;
+  if (!confirm(`Create ${cards.length} drafts in your Gmail Drafts folder? You can then review and send each one from Gmail.`)) return;
+  const bulkBtn = document.getElementById("create-all-btn");
+  bulkBtn.disabled = true;
+  let success = 0, fail = 0;
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const bodyDiv = card.querySelector(".draft-body");
+    const html = bodyDiv.innerHTML;
+    const btn = card.querySelector(".create-draft-btn");
+    btn.textContent = "Creating...";
+    btn.disabled = true;
+    try {
+      await createGmailDraft(card._data.toList, SUBJECT, html);
+      btn.textContent = "✅ Created";
+      btn.classList.add("copied-flash");
+      success++;
+    } catch (err) {
+      console.error("Draft", i, "failed:", err);
+      btn.textContent = "❌ Failed";
+      fail++;
+    }
+    bulkBtn.textContent = `Creating drafts… ${success + fail} / ${cards.length}`;
+  }
+  bulkBtn.textContent = `${success} created, ${fail} failed`;
+  setTimeout(() => {
+    bulkBtn.textContent = "Create all drafts in Gmail";
+    bulkBtn.disabled = !accessToken;
+    document.querySelectorAll(".create-draft-btn").forEach(b => {
+      b.disabled = !accessToken;
+      b.classList.remove("copied-flash");
+      b.textContent = "Create Gmail draft";
+    });
+  }, 4000);
+}
+
+function flashCopied(btn, label) {
+  const originalText = btn.textContent;
+  btn.textContent = label || "Copied ✓";
+  btn.classList.add("copied-flash");
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.classList.remove("copied-flash");
+  }, 1600);
+}
+
+// ============================================================================
+// Bulk-open-all (reads live edited state from each card at click time)
+// ============================================================================
+function openAllInCompose() {
+  const cards = document.querySelectorAll(".draft-card");
+  if (cards.length === 0) return;
+  if (!confirm(
+    `Open ${cards.length} Gmail compose windows? Each will have To and Subject pre-filled but you'll still need to copy + paste the email body into each one separately. Make sure your browser allows popups for this page.`
+  )) return;
+  cards.forEach((card, i) => {
+    const url = gmailComposeUrl(card._data.toList, SUBJECT);
+    // Stagger slightly so the browser is more likely to allow all popups
+    setTimeout(() => window.open(url, "_blank"), i * 200);
+  });
+}
+
+// ============================================================================
+// File handling
+// ============================================================================
+function showStatus(msg, isError) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.display = "block";
+  el.classList.toggle("error", !!isError);
+}
+
+// Module-level state so the period dropdown can re-render without re-uploading
+let _parsedRows = null;
+let _autoDetectedPd = null;
+
+function populatePeriodDropdown(autoPd) {
+  const select = document.getElementById("period-override");
+  select.innerHTML = "";
+  // First option: auto-detect
+  const autoOpt = document.createElement("option");
+  autoOpt.value = "auto";
+  autoOpt.textContent = `Auto-detect (currently: ${autoPd.label} — due ${fmtDueLong(autoPd.due)})`;
+  select.appendChild(autoOpt);
+  // Then each calendar period as an explicit override
+  for (const p of CALENDAR) {
+    const opt = document.createElement("option");
+    opt.value = p.begin;
+    opt.textContent = `${p.label} (due ${fmtDueLong(p.due)})`;
+    select.appendChild(opt);
+  }
+  select.value = "auto";
+}
+
+function getSelectedPeriod() {
+  const select = document.getElementById("period-override");
+  if (!select || select.value === "auto") return _autoDetectedPd;
+  return CALENDAR.find(p => p.begin === select.value) || _autoDetectedPd;
+}
+
+function rerenderWithSelectedPeriod() {
+  if (!_parsedRows) return;
+  const pd = getSelectedPeriod();
+  const people = groupByEmail(_parsedRows, pd);
+  showStatus(`Parsed ${_parsedRows.length} expense report(s) for ${people.length} cardholder(s). Current statement period: ${pd.label} (due ${fmtDueLong(pd.due)}).`);
+  renderDrafts(people, pd);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!/\.csv$/i.test(file.name)) {
+    showStatus("Please upload a .csv file.", true);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const rows = parseCsv(e.target.result);
+      if (rows.length === 0) throw new Error("CSV is empty.");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      _autoDetectedPd = currentPeriod(today);
+      _parsedRows = rows;
+      populatePeriodDropdown(_autoDetectedPd);
+      const people = groupByEmail(rows, _autoDetectedPd);
+      if (people.length === 0) throw new Error("No rows with an Email value were found.");
+      showStatus(`Parsed ${rows.length} expense report(s) for ${people.length} cardholder(s). Current statement period: ${_autoDetectedPd.label} (due ${fmtDueLong(_autoDetectedPd.due)}).`);
+      renderDrafts(people, _autoDetectedPd);
+      document.getElementById("drafts-section").style.display = "block";
+      document.getElementById("drop-zone").style.display = "none";
+    } catch (err) {
+      console.error(err);
+      showStatus("Error parsing CSV: " + err.message, true);
+    }
+  };
+  reader.onerror = () => showStatus("Could not read file.", true);
+  reader.readAsText(file);
+}
+
+// ============================================================================
+// Wire up the UI
+// ============================================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const dropZone = document.getElementById("drop-zone");
+  const fileInput = document.getElementById("file-input");
+
+  dropZone.addEventListener("click", e => {
+    if (e.target.tagName !== "LABEL") fileInput.click();
+  });
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", e => {
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+  });
+
+  document.getElementById("open-all-btn").addEventListener("click", openAllInCompose);
+  document.getElementById("create-all-btn").addEventListener("click", createAllInGmail);
+  document.getElementById("signin-btn").addEventListener("click", signIn);
+  document.getElementById("signout-btn").addEventListener("click", signOut);
+  document.getElementById("download-template-link").addEventListener("click", downloadCsvTemplate);
+  document.getElementById("download-template-link-2").addEventListener("click", downloadCsvTemplate);
+  document.getElementById("reset-btn").addEventListener("click", () => {
+    document.getElementById("drafts-section").style.display = "none";
+    document.getElementById("drop-zone").style.display = "block";
+    document.getElementById("status").style.display = "none";
+    fileInput.value = "";
+    _parsedRows = null;
+    _autoDetectedPd = null;
+  });
+  document.getElementById("period-override").addEventListener("change", rerenderWithSelectedPeriod);
+
+  // Poll for the Google libraries (loaded via async script tags in <head>)
+  // and initialize them when ready.
+  const libCheck = setInterval(() => {
+    if (typeof google !== "undefined" && google.accounts && google.accounts.oauth2 && !gisReady) {
+      initGis();
+    }
+    if (typeof gapi !== "undefined" && !gapiReady) {
+      loadGapiClient().catch(err => console.error("GAPI init failed:", err));
+    }
+    if (gisReady && gapiReady) clearInterval(libCheck);
+  }, 200);
+
+  updateAuthUi();
+});
+</script>
+</body>
+</html>
