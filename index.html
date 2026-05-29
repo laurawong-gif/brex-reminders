@@ -164,6 +164,7 @@
   }
   .draft-header-info { flex: 1; min-width: 0; }
   .draft-to { font-weight: 600; font-size: 14px; word-break: break-all; }
+  .draft-cc { font-size: 13px; color: #5f6368; word-break: break-all; margin-top: 2px; }
   .draft-meta { font-size: 12px; color: #5f6368; margin-top: 2px; }
   .draft-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .draft-body {
@@ -449,14 +450,18 @@ function buildRfc822(toList, subject, htmlBody) {
 }
 function buildRfc822Plain(toList, subject, htmlBody) {
   // Simpler approach: 8bit body, RFC 822 ascii safe via UTF-8 + Q-encoded subject if needed
-  return [
+  const headers = [
     "To: " + toList.join(", "),
-    "Subject: " + subject,
-    "MIME-Version: 1.0",
-    'Content-Type: text/html; charset="UTF-8"',
-    "",
-    htmlBody,
-  ].join("\r\n");
+  ];
+  if (ALWAYS_CC.length > 0) {
+    headers.push("Cc: " + ALWAYS_CC.join(", "));
+  }
+  headers.push("Subject: " + subject);
+  headers.push("MIME-Version: 1.0");
+  headers.push('Content-Type: text/html; charset="UTF-8"');
+  headers.push("");
+  headers.push(htmlBody);
+  return headers.join("\r\n");
 }
 
 async function createGmailDraft(toList, subject, htmlBody) {
@@ -494,6 +499,9 @@ const MONTHS = {
 };
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const SUBJECT = "[ACTION REQUIRED] BREX Credit Card Expense Reports DUE";
+// Always-CC list: these addresses are CC'd on every draft regardless of the
+// recipient. Used to keep the Procurement team in the loop on every reminder.
+const ALWAYS_CC = ["procurement@masterclass.com"];
 
 // ============================================================================
 // Helpers
@@ -751,6 +759,9 @@ function gmailComposeUrl(toList, subject) {
   params.set("fs", "1");
   params.set("to", toList.join(","));
   params.set("su", subject);
+  if (ALWAYS_CC.length > 0) {
+    params.set("cc", ALWAYS_CC.join(","));
+  }
   return "https://mail.google.com/mail/?" + params.toString();
 }
 
@@ -789,6 +800,7 @@ function renderDrafts(people, currentPd) {
       <div class="draft-header">
         <div class="draft-header-info">
           <div class="draft-to">To: ${escapeHtml(toList.join(", "))} ${agedBadge}<span class="edited-badge" style="display:none;">EDITED</span></div>
+          ${ALWAYS_CC.length > 0 ? `<div class="draft-cc">CC: ${escapeHtml(ALWAYS_CC.join(", "))}</div>` : ""}
           <div class="draft-meta">${person.items.length} item${person.items.length === 1 ? "" : "s"} &middot; Hi ${escapeHtml(person.firstName)}</div>
         </div>
         <div class="draft-actions">
