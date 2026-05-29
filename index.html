@@ -1027,17 +1027,37 @@ function rerenderWithSelectedPeriod() {
   renderDrafts(people, pd);
 }
 
+// Parse an .xlsx file (ArrayBuffer) into the same row-of-objects format as parseCsv.
+// Requires SheetJS (XLSX) to be loaded.
+function parseXlsx(arrayBuffer) {
+  if (typeof XLSX === "undefined") {
+    throw new Error("XLSX library not loaded yet. Please refresh the page and try again.");
+  }
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+    throw new Error("XLSX has no sheets.");
+  }
+  // Use the first sheet — same convention as the CSV (single tab of data)
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+  // raw:false gives us formatted strings (e.g., "5/10/26") instead of Excel
+  // serial-number dates. defval:"" fills missing cells with empty string so
+  // the downstream code can treat them like CSV blanks.
+  return XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
+}
+
 function handleFile(file) {
   if (!file) return;
-  if (!/\.csv$/i.test(file.name)) {
-    showStatus("Please upload a .csv file.", true);
+  const isCsv = /\.csv$/i.test(file.name);
+  const isXlsx = /\.xlsx$/i.test(file.name);
+  if (!isCsv && !isXlsx) {
+    showStatus("Please upload a .csv or .xlsx file.", true);
     return;
   }
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const rows = parseCsv(e.target.result);
-      if (rows.length === 0) throw new Error("CSV is empty.");
+      const rows = isXlsx ? parseXlsx(e.target.result) : parseCsv(e.target.result);
+      if (rows.length === 0) throw new Error((isXlsx ? "XLSX" : "CSV") + " is empty.");
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       _autoDetectedPd = currentPeriod(today);
