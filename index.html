@@ -1075,7 +1075,11 @@ function handleFile(file) {
     }
   };
   reader.onerror = () => showStatus("Could not read file.", true);
-  reader.readAsText(file);
+  if (isXlsx) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
+  }
 }
 
 // ============================================================================
