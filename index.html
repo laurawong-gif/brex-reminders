@@ -304,21 +304,20 @@
 
 <script>
 // ============================================================================
-// CSV template — used by the "Download blank template" links
+// XLSX template — used by the "Download blank template" links
 // ============================================================================
-const CSV_TEMPLATE = "Exp #,Title,Expensed By,Submitted By,Submitted At,Total,Status,Current Approver,Current Approval Group,Created Date,Email,Second Email,Coupa Link\n";
+const TEMPLATE_HEADERS = ["Exp #", "Title", "Expensed By", "Submitted By", "Submitted At", "Total", "Status", "Current Approver", "Current Approval Group", "Created Date", "Email", "Second Email", "Coupa Link"];
 
-function downloadCsvTemplate(e) {
+function downloadXlsxTemplate(e) {
   if (e) e.preventDefault();
-  const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "Brex Email Reminder_TEMPLATE.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  if (typeof XLSX === "undefined") {
+    alert("XLSX library not loaded yet. Please refresh the page and try again.");
+    return;
+  }
+  const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  XLSX.writeFile(wb, "Brex Email Reminder_TEMPLATE.xlsx");
 }
 
 // ============================================================================
