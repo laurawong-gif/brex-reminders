@@ -1013,17 +1013,16 @@ function parseXlsx(arrayBuffer) {
 
 function handleFile(file) {
   if (!file) return;
-  const isCsv = /\.csv$/i.test(file.name);
   const isXlsx = /\.xlsx$/i.test(file.name);
-  if (!isCsv && !isXlsx) {
-    showStatus("Please upload a .csv or .xlsx file.", true);
+  if (!isXlsx) {
+    showStatus("Please upload a .xlsx file.", true);
     return;
   }
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const rows = isXlsx ? parseXlsx(e.target.result) : parseCsv(e.target.result);
-      if (rows.length === 0) throw new Error((isXlsx ? "XLSX" : "CSV") + " is empty.");
+      const rows = parseXlsx(e.target.result);
+      if (rows.length === 0) throw new Error("XLSX is empty.");
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       _autoDetectedPd = currentPeriod(today);
@@ -1037,15 +1036,11 @@ function handleFile(file) {
       document.getElementById("drop-zone").style.display = "none";
     } catch (err) {
       console.error(err);
-      showStatus("Error parsing CSV: " + err.message, true);
+      showStatus("Error parsing XLSX: " + err.message, true);
     }
   };
   reader.onerror = () => showStatus("Could not read file.", true);
-  if (isXlsx) {
-    reader.readAsArrayBuffer(file);
-  } else {
-    reader.readAsText(file);
-  }
+  reader.readAsArrayBuffer(file);
 }
 
 // ============================================================================
