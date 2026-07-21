@@ -993,7 +993,7 @@ function rerenderWithSelectedPeriod() {
   renderDrafts(people, pd);
 }
 
-// Parse an .xlsx file (ArrayBuffer) into the same row-of-objects format as parseCsv.
+// Parse an .xlsx file (ArrayBuffer) into a row-of-objects format keyed by header.
 // Requires SheetJS (XLSX) to be loaded.
 function parseXlsx(arrayBuffer) {
   if (typeof XLSX === "undefined") {
@@ -1003,11 +1003,10 @@ function parseXlsx(arrayBuffer) {
   if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
     throw new Error("XLSX has no sheets.");
   }
-  // Use the first sheet — same convention as the CSV (single tab of data)
+  // Use the first sheet (single tab of data)
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
   // raw:false gives us formatted strings (e.g., "5/10/26") instead of Excel
-  // serial-number dates. defval:"" fills missing cells with empty string so
-  // the downstream code can treat them like CSV blanks.
+  // serial-number dates. defval:"" fills missing cells with empty string.
   return XLSX.utils.sheet_to_json(firstSheet, { defval: "", raw: false });
 }
 
